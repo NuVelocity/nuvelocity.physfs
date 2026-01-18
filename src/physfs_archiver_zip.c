@@ -108,6 +108,7 @@ typedef struct
 #define ZIP_LOCAL_FILE_SIG                          0x04034b50
 #define ZIP_CENTRAL_DIR_SIG                         0x02014b50
 #define ZIP_END_OF_CENTRAL_DIR_SIG                  0x06054b50
+#define ZIPRE_END_OF_CENTRAL_DIR_SIG                0x06054552
 #define ZIP64_END_OF_CENTRAL_DIR_SIG                0x06064b50
 #define ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIG  0x07064b50
 #define ZIP64_EXTENDED_INFO_EXTRA_FIELD_SIG         0x0001
@@ -587,12 +588,20 @@ static PHYSFS_sint64 zip_find_end_of_central_dir(PHYSFS_Io *io, PHYSFS_sint64 *l
 
         for (i = maxread - 4; i > 0; i--)
         {
+            if ((buf[i + 0] == 0x52) &&
+                (buf[i + 1] == 0x45) &&
+                (buf[i + 2] == 0x05) &&
+                (buf[i + 3] == 0x06) )
+            {
+                found = 1;  /* that's the ZIPRE signature! */
+                break;
+            } /* if */
             if ((buf[i + 0] == 0x50) &&
                 (buf[i + 1] == 0x4B) &&
                 (buf[i + 2] == 0x05) &&
                 (buf[i + 3] == 0x06) )
             {
-                found = 1;  /* that's the signature! */
+                found = 1;  /* that's the ZIP signature! */
                 break;  
             } /* if */
         } /* for */
@@ -1382,7 +1391,8 @@ static int zip_parse_end_of_central_dir(ZIPinfo *info,
 
     /* check signature again, just in case. */
     BAIL_IF_ERRPASS(!readui32(io, &ui32), 0);
-    BAIL_IF(ui32 != ZIP_END_OF_CENTRAL_DIR_SIG, PHYSFS_ERR_CORRUPT, 0);
+    BAIL_IF(ui32 != ZIP_END_OF_CENTRAL_DIR_SIG &&
+            ui32 != ZIPRE_END_OF_CENTRAL_DIR_SIG, PHYSFS_ERR_CORRUPT, 0);
 
     /* Seek back to see if "Zip64 end of central directory locator" exists. */
     /* this record is 20 bytes before end-of-central-dir */
